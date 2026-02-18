@@ -10,7 +10,7 @@ export type ModelTier = 'fast' | 'balanced' | 'powerful'
 
 // Free on Groq. llama3-8b for simple tasks, 70b for quality work.
 const MODEL_MAP: Record<ModelTier, string> = {
-    fast: 'llama3-8b-8192',           // PM breakdowns, simple tasks
+    fast: 'llama-3.1-8b-instant',     // PM breakdowns, simple tasks
     balanced: 'llama-3.3-70b-versatile',  // Dev execution, complex tasks
     powerful: 'llama-3.3-70b-versatile',  // Same on free tier
 }

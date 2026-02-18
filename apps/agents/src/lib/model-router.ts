@@ -1,24 +1,32 @@
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Groq is OpenAI-compatible — just a different baseURL
+const groq = new OpenAI({
+    baseURL: 'https://api.groq.com/openai/v1',
+    apiKey: process.env.GROQ_API_KEY,
+})
 
 export type ModelTier = 'fast' | 'balanced' | 'powerful'
 
-// Phase 1: all tiers use gpt-4o-mini for cheap testing
+// Free on Groq. llama3-8b for simple tasks, 70b for quality work.
 const MODEL_MAP: Record<ModelTier, string> = {
-    fast: 'gpt-4o-mini',
-    balanced: 'gpt-4o-mini',
-    powerful: 'gpt-4o-mini',
+    fast: 'llama3-8b-8192',           // PM breakdowns, simple tasks
+    balanced: 'llama-3.3-70b-versatile',  // Dev execution, complex tasks
+    powerful: 'llama-3.3-70b-versatile',  // Same on free tier
 }
 
+// Groq free = $0. These are for telemetry reference when you switch to paid.
 const PRICING: Record<string, { input: number; output: number }> = {
+    'llama3-8b-8192': { input: 0.05, output: 0.10 },
+    'llama-3.3-70b-versatile': { input: 0.59, output: 0.79 },
     'gpt-4o-mini': { input: 0.15, output: 0.60 },
-    'gpt-4o': { input: 2.50, output: 10.00 },
+    'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
+    'claude-sonnet-4-6': { input: 3.00, output: 15.00 },
 }
 
-export function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-    const p = PRICING[model] ?? PRICING['gpt-4o-mini']
-    return (inputTokens / 1_000_000) * p.input + (outputTokens / 1_000_000) * p.output
+export function calculateCost(model: string, input: number, output: number): number {
+    const p = PRICING[model] ?? { input: 0, output: 0 }
+    return (input / 1_000_000) * p.input + (output / 1_000_000) * p.output
 }
 
 export async function callModel(params: {
@@ -27,16 +35,10 @@ export async function callModel(params: {
     userMessage: string
     maxTokens?: number
     expectJson?: boolean
-}): Promise<{
-    text: string
-    model: string
-    inputTokens: number
-    outputTokens: number
-    cost: number
-}> {
+}): Promise<{ text: string; model: string; inputTokens: number; outputTokens: number; cost: number }> {
     const model = MODEL_MAP[params.tier]
 
-    const response = await openai.chat.completions.create({
+    const response = await groq.chat.completions.create({
         model,
         max_tokens: params.maxTokens ?? 1024,
         response_format: params.expectJson ? { type: 'json_object' } : undefined,
@@ -49,7 +51,6 @@ export async function callModel(params: {
     const text = response.choices[0]?.message?.content ?? ''
     const inputTokens = response.usage?.prompt_tokens ?? 0
     const outputTokens = response.usage?.completion_tokens ?? 0
-    const cost = calculateCost(model, inputTokens, outputTokens)
 
-    return { text, model, inputTokens, outputTokens, cost }
+    return { text, model, inputTokens, outputTokens, cost: calculateCost(model, inputTokens, outputTokens) }
 }

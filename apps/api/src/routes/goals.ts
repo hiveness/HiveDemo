@@ -22,6 +22,9 @@ export async function goalsRoutes(app: FastifyInstance) {
         const { goal, budget_usd } = body.data
         const idempotency_key = `goal-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
+        // Fetch PM agent to get ID and company ID
+        const { data: agent } = await supabase.from('agents').select('id, company_id').eq('role', 'pm').single()
+
         const { data: task, error } = await supabase.from('tasks').insert({
             goal, status: 'pending', estimated_cost_usd: budget_usd, idempotency_key,
         }).select().single()
@@ -31,7 +34,12 @@ export async function goalsRoutes(app: FastifyInstance) {
             return reply.status(500).send({ error: 'Failed to create task' })
         }
 
-        await pmQueue.add('pm-task', { taskId: task.id, goal }, {
+        await pmQueue.add('pm-task', {
+            taskId: task.id,
+            goal,
+            agentId: agent?.id,
+            companyId: agent?.company_id,
+        }, {
             jobId: idempotency_key, attempts: 3, backoff: { type: 'exponential', delay: 2000 },
         })
 

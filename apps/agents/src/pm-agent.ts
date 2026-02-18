@@ -3,7 +3,7 @@ import { Worker, Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 import { supabase } from '@hive/db'
 import { PMResponseSchema } from '@hive/shared'
-import { assembleContext, buildSystemPrompt, consolidateMemory, clearWorkingMemory } from '@hive/memory'
+import { assembleContext, buildSystemPrompt } from '@hive/memory'
 import { callModel } from './lib/model-router'
 import { logEvent } from './lib/telemetry'
 import { checkBudget, recordSpend } from './lib/budget'
@@ -11,7 +11,6 @@ import { checkBudget, recordSpend } from './lib/budget'
 const redisUrl = process.env.UPSTASH_REDIS_URL
 if (!redisUrl) throw new Error('Missing UPSTASH_REDIS_URL')
 
-// Upstash requires tls: {} if using rediss://
 const connection = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {})
@@ -20,7 +19,7 @@ const connection = new Redis(redisUrl, {
 const devQueue = new Queue('dev-tasks', { connection })
 
 const worker = new Worker('pm-tasks', async (job) => {
-    const { taskId, goal } = job.data
+    const { taskId, goal, companyId } = job.data
 
     const { data: agent } = await supabase.from('agents').select('*').eq('role', 'pm').single()
     if (!agent) throw new Error('PM agent not found')
@@ -38,8 +37,7 @@ const worker = new Worker('pm-tasks', async (job) => {
     await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_start', success: true })
 
     try {
-        // ── Tier 1-4 Memory Integration
-        const ctx = await assembleContext(agent.id, agent.company_id, goal, taskId)
+        const ctx = await assembleContext(agent.id, companyId ?? agent.company_id ?? 'default', goal, taskId)
         const systemPrompt = buildSystemPrompt(ctx, agent.directive)
 
         const start = Date.now()
@@ -61,6 +59,8 @@ const worker = new Worker('pm-tasks', async (job) => {
         const parsed = PMResponseSchema.safeParse(JSON.parse(text))
         if (!parsed.success) throw new Error(`Invalid PM response: ${text}`)
 
+        const { data: devAgent } = await supabase.from('agents').select('id').eq('role', 'dev').single()
+
         for (const subtask of parsed.data.subtasks) {
             const key = `${taskId}-${subtask.title}`.replace(/\s+/g, '-').toLowerCase().slice(0, 200)
             const { data: newTask } = await supabase.from('tasks').insert({
@@ -73,7 +73,13 @@ const worker = new Worker('pm-tasks', async (job) => {
             }).select().single()
 
             if (newTask) {
-                await devQueue.add('dev-task', { taskId: newTask.id, spec: subtask }, {
+                await devQueue.add('dev-task', {
+                    taskId: newTask.id,
+                    spec: subtask,
+                    agentId: devAgent?.id,
+                    companyId: companyId ?? agent.company_id,
+                    goal: subtask.title,
+                }, {
                     attempts: 3, backoff: { type: 'exponential', delay: 2000 },
                 })
             }
@@ -86,19 +92,10 @@ const worker = new Worker('pm-tasks', async (job) => {
             updated_at: new Date().toISOString(),
         }).eq('id', taskId)
 
-        // ── Memory Consolidation
-        await consolidateMemory(`PM created ${parsed.data.subtasks.length} subtasks:\n${text}`, goal, true, {
-            agentId: agent.id,
-            companyId: agent.company_id,
-            taskId: taskId,
-            importance: 6,
-        })
-
-        // ── Working Memory Cleanup
-        await clearWorkingMemory(agent.id, taskId)
-
         await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_complete', success: true })
         console.log(`[PM] Done. ${parsed.data.subtasks.length} subtasks queued.`)
+
+        return `PM created ${parsed.data.subtasks.length} subtasks`
 
     } catch (err: any) {
         await supabase.from('tasks').update({ status: 'failed', result: err.message }).eq('id', taskId)

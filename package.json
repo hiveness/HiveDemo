@@ -6,9 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "cd apps/api && npx tsx --env-file=../../.env src/index.ts",
-    "dev:pm": "cd apps/agents && npx tsx --env-file=../../.env src/pm-agent.ts",
-    "dev:dev": "cd apps/agents && npx tsx --env-file=../../.env src/dev-agent.ts",
+    "dev:api": "npx tsx apps/api/src/index.ts",
+    "dev:pm": "npx tsx apps/agents/src/pm-agent.ts",
+    "dev:dev": "npx tsx apps/agents/src/dev-agent.ts",
+    "dev:orchestrator": "npx tsx apps/orchestrator/src/index.ts",
     "build": "turbo build"
   },
   "devDependencies": {

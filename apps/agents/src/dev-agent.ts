@@ -2,7 +2,7 @@ import 'dotenv/config'
 import { Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 import { supabase } from '@hive/db'
-import { assembleContext, buildSystemPrompt, consolidateMemory, clearWorkingMemory } from '@hive/memory'
+import { assembleContext, buildSystemPrompt } from '@hive/memory'
 import { callModel } from './lib/model-router'
 import { logEvent } from './lib/telemetry'
 import { checkBudget, recordSpend } from './lib/budget'
@@ -17,7 +17,7 @@ const connection = new Redis(redisUrl, {
 })
 
 const worker = new Worker('dev-tasks', async (job) => {
-    const { taskId, spec }: { taskId: string; spec: Subtask } = job.data
+    const { taskId, spec, companyId }: { taskId: string; spec: Subtask; companyId?: string } = job.data
 
     const { data: agent } = await supabase.from('agents').select('*').eq('role', 'dev').single()
     if (!agent) throw new Error('Dev agent not found')
@@ -35,8 +35,7 @@ const worker = new Worker('dev-tasks', async (job) => {
     await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_start', success: true })
 
     try {
-        // ── Tier 1-4 Memory Integration
-        const ctx = await assembleContext(agent.id, agent.company_id, spec.title, taskId)
+        const ctx = await assembleContext(agent.id, companyId ?? agent.company_id ?? 'default', spec.title, taskId)
         const systemPrompt = buildSystemPrompt(ctx, agent.directive)
 
         const userMessage = `Task: ${spec.title}\n\nSpec: ${spec.spec}\n\nAcceptance Criteria:\n${spec.acceptance_criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}\n\nComplete this now.`
@@ -61,19 +60,10 @@ const worker = new Worker('dev-tasks', async (job) => {
             updated_at: new Date().toISOString(),
         }).eq('id', taskId)
 
-        // ── Memory Consolidation
-        await consolidateMemory(text, spec.title, true, {
-            agentId: agent.id,
-            companyId: agent.company_id,
-            taskId: taskId,
-            importance: 7,
-        })
-
-        // ── Working Memory Cleanup
-        await clearWorkingMemory(agent.id, taskId)
-
         await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_complete', success: true })
         console.log(`[Dev] Done. Cost: $${cost.toFixed(5)}`)
+
+        return text
 
     } catch (err: any) {
         await supabase.from('tasks').update({ status: 'failed', result: err.message }).eq('id', taskId)

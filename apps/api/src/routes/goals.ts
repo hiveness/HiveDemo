@@ -1,0 +1,40 @@
+import type { FastifyInstance } from 'fastify'
+import { Queue } from 'bullmq'
+import { Redis } from 'ioredis'
+import { supabase } from '@hive/db'
+import { CreateGoalSchema } from '@hive/shared'
+
+export async function goalsRoutes(app: FastifyInstance) {
+    const redisUrl = process.env.UPSTASH_REDIS_URL
+    if (!redisUrl) throw new Error('Missing UPSTASH_REDIS_URL')
+
+    const connection = new Redis(redisUrl, {
+        maxRetriesPerRequest: null,
+        ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {})
+    })
+
+    const pmQueue = new Queue('pm-tasks', { connection })
+
+    app.post('/', async (req, reply) => {
+        const body = CreateGoalSchema.safeParse(req.body)
+        if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+        const { goal, budget_usd } = body.data
+        const idempotency_key = `goal-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+        const { data: task, error } = await supabase.from('tasks').insert({
+            goal, status: 'pending', estimated_cost_usd: budget_usd, idempotency_key,
+        }).select().single()
+
+        if (error || !task) {
+            app.log.error(error)
+            return reply.status(500).send({ error: 'Failed to create task' })
+        }
+
+        await pmQueue.add('pm-task', { taskId: task.id, goal }, {
+            jobId: idempotency_key, attempts: 3, backoff: { type: 'exponential', delay: 2000 },
+        })
+
+        return reply.status(201).send({ task_id: task.id, status: 'queued', goal })
+    })
+}

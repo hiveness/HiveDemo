@@ -1,0 +1,19 @@
+{
+  "name": "hive-backend",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "cd apps/api && npx tsx --env-file=../../.env src/index.ts",
+    "dev:pm": "cd apps/agents && npx tsx --env-file=../../.env src/pm-agent.ts",
+    "dev:dev": "cd apps/agents && npx tsx --env-file=../../.env src/dev-agent.ts",
+    "build": "turbo build"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.1"
+  }
+}

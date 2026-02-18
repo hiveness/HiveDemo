@@ -1,0 +1,9 @@
+{
+    "name": "@hive/db",
+    "version": "1.0.0",
+    "private": true,
+    "main": "src/client.ts",
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.7"
+    }
+}

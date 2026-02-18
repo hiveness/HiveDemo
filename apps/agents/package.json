@@ -1,0 +1,18 @@
+{
+    "name": "hive-agents",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+        "@hive/db": "*",
+        "@hive/shared": "*",
+        "@hive/memory": "*",
+        "bullmq": "^5.1.0",
+        "dotenv": "^16.3.1",
+        "ioredis": "^5.3.2",
+        "openai": "^4.20.1"
+    },
+    "devDependencies": {
+        "tsx": "^4.7.1",
+        "typescript": "^5.4.0"
+    }
+}

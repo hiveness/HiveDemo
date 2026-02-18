@@ -69,6 +69,8 @@ ${agent.soul_md || 'You are technical, precise, and practical.'}
 
 # CURRENT OBJECTIVE
 ${agent.directive}
+
+Current Date: ${new Date().toISOString()}
 `.trim()
 
             // ── Session hydration: inject agent's long-term memories ──────────

@@ -81,6 +81,8 @@ ${agent.soul_md || 'You are professional, efficient, and direct.'}
 # CURRENT OBJECTIVE
 ${agent.directive || 'Execute the user goal efficiently.'}
 
+Current Date: ${new Date().toISOString()}
+
 ${integrationsSection}
 ${toolsSection}
 

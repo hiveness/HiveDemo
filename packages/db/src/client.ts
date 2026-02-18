@@ -1,15 +1,27 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const url = process.env.SUPABASE_URL
-const key = process.env.SUPABASE_SERVICE_KEY
+let supabaseInstance: SupabaseClient | null = null
 
-console.log('[DB] SUPABASE_URL present:', !!url)
-console.log('[DB] SUPABASE_SERVICE_KEY present:', !!key)
+export const getSupabase = () => {
+    if (supabaseInstance) return supabaseInstance
 
-if (!url) {
-    console.error('[DB] Missing SUPABASE_URL. All env vars:', Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('TOKEN')))
-    throw new Error('SUPABASE_URL is missing from environment variables')
+    const url = process.env.SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_KEY
+
+    if (!url || !key) {
+        console.error('[DB] SUPABASE_URL or SUPABASE_SERVICE_KEY is missing.')
+        console.error('[DB] Available env vars:', Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('TOKEN')))
+        throw new Error('Supabase environment variables are missing.')
+    }
+
+    supabaseInstance = createClient(url, key)
+    return supabaseInstance
 }
-if (!key) throw new Error('SUPABASE_SERVICE_KEY is missing from environment variables')
 
-export const supabase = createClient(url, key)
+// For backward compatibility
+export const supabase = new Proxy({} as SupabaseClient, {
+    get: (target, prop) => {
+        const instance = getSupabase()
+        return (instance as any)[prop]
+    }
+})

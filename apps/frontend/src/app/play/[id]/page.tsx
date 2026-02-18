@@ -7,9 +7,11 @@ import PlayClient from '../PlayClient'
 import { updateVisitedRealms } from '@/utils/supabase/updateVisitedRealms'
 import { formatEmailToName } from '@/utils/formatEmailToName'
 
-export default async function Play({ params, searchParams }: { params: { id: string }, searchParams: { shareId: string } }) {
+export default async function Play({ params: paramsPromise, searchParams: searchParamsPromise }: { params: Promise<{ id: string }>, searchParams: Promise<{ shareId: string }> }) {
+    const params = await paramsPromise;
+    const searchParams = await searchParamsPromise;
 
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -22,7 +24,7 @@ export default async function Play({ params, searchParams }: { params: { id: str
     if (!data || !profile) {
         const message = error?.message || profileError?.message
 
-        return <NotFound specialMessage={message}/>
+        return <NotFound specialMessage={message} />
     }
 
     const realm = data
@@ -35,13 +37,13 @@ export default async function Play({ params, searchParams }: { params: { id: str
     }
 
     return (
-        <PlayClient 
-            mapData={map_data} 
-            username={formatEmailToName(user.user_metadata.email)} 
-            access_token={session.access_token} 
-            realmId={params.id} 
-            uid={user.id} 
-            shareId={searchParams.shareId || ''} 
+        <PlayClient
+            mapData={map_data}
+            username={formatEmailToName(user.user_metadata.email)}
+            access_token={session.access_token}
+            realmId={params.id}
+            uid={user.id}
+            shareId={searchParams.shareId || ''}
             initialSkin={skin}
             name={realm.name}
         />

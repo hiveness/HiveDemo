@@ -1,0 +1,10 @@
+{
+    "name": "email",
+    "display_name": "Basic Email",
+    "description": "Send emails via Resend. Best for transactional notifications.",
+    "version": "1.0.0",
+    "icon": "✉️",
+    "category": "communication",
+    "requires_auth": false,
+    "enabled_by_default": true
+}

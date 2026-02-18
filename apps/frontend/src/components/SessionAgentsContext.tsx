@@ -9,16 +9,14 @@ export interface AgentConfig {
     type: "duck" | "blu_guy";
     tint: string;        // hex color e.g. "0x44cc88"
     soul: string;        // full soul.md content
+    about: string;       // full about.md content
+    memory: string;      // full memory.md content
     personality: {
         name: string;
         role: string;
         traits: string[];
         appearance: { type: string; tint: string };
         speech_pattern: string;
-    };
-    memory: {
-        learnings: string[];
-        blink_count: number;
     };
 }
 
@@ -34,7 +32,7 @@ interface SessionAgentsContextType extends SessionAgentsState {
     generateAgents: (goal: string, devCount: number) => Promise<void>;
     getAgentByName: (name: string) => AgentConfig | undefined;
     getAgentByIndex: (index: number) => AgentConfig | undefined;
-    updateAgentMemory: (agentId: string, memory: { learnings: string[]; blink_count: number }) => void;
+    updateAgentMemory: (agentId: string, memory: string) => void;
 }
 
 const SessionAgentsContext = createContext<SessionAgentsContextType | null>(null);
@@ -89,7 +87,7 @@ export const SessionAgentsProvider: React.FC<{ children: React.ReactNode }> = ({
         return state.agents[index];
     }, [state.agents]);
 
-    const updateAgentMemory = useCallback((agentId: string, memory: { learnings: string[]; blink_count: number }) => {
+    const updateAgentMemory = useCallback((agentId: string, memory: string) => {
         setState(prev => ({
             ...prev,
             agents: prev.agents.map(a =>

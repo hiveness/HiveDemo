@@ -334,10 +334,10 @@ const GatherAppInner: React.FC = () => {
                         }}
                     />
 
-                    <HivePanel
+                    {/* <HivePanel
                         isOpen={isHiveOpen}
                         onClose={() => setIsHiveOpen(false)}
-                    />
+                    /> */}
                 </>
             )}
         </div>

@@ -3,15 +3,25 @@
     "version": "1.0.0",
     "private": true,
     "dependencies": {
+        "@fastify/cors": "^9.0.1",
         "@hive/db": "*",
-        "@hive/shared": "*",
         "@hive/memory": "*",
+        "@hive/shared": "*",
+        "@supabase/supabase-js": "^2.96.0",
+        "axios": "^1.13.5",
         "bullmq": "^5.1.0",
+        "cheerio": "^1.2.0",
         "dotenv": "^16.3.1",
         "fastify": "^4.24.3",
-        "ioredis": "^5.3.2"
+        "googleapis": "^171.4.0",
+        "ioredis": "^5.3.2",
+        "openai": "^6.22.0",
+        "playwright": "^1.58.2",
+        "socket.io": "^4.8.3",
+        "zod": "^4.3.6"
     },
     "devDependencies": {
+        "@types/socket.io": "^3.0.1",
         "tsx": "^4.7.1",
         "typescript": "^5.4.0"
     }

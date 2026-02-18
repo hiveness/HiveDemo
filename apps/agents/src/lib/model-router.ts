@@ -29,6 +29,10 @@ export function calculateCost(model: string, input: number, output: number): num
     return (input / 1_000_000) * p.input + (output / 1_000_000) * p.output
 }
 
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+})
+
 export async function callModel(params: {
     tier: ModelTier
     systemPrompt: string
@@ -39,19 +43,42 @@ export async function callModel(params: {
     const model = MODEL_MAP[params.tier]
     console.log(`[ModelRouter] Calling ${model} for tier ${params.tier}`)
 
-    const response = await groq.chat.completions.create({
-        model,
-        max_tokens: params.maxTokens ?? 1024,
-        response_format: params.expectJson ? { type: 'json_object' } : undefined,
-        messages: [
-            { role: 'system', content: params.systemPrompt },
-            { role: 'user', content: params.userMessage },
-        ],
-    })
+    try {
+        // Try Groq first with a strict 8s timeout
+        const response = await groq.chat.completions.create({
+            model,
+            max_tokens: params.maxTokens ?? 1024,
+            response_format: params.expectJson ? { type: 'json_object' } : undefined,
+            messages: [
+                { role: 'system', content: params.systemPrompt },
+                { role: 'user', content: params.userMessage },
+            ],
+        }, { timeout: 8000 })
 
-    const text = response.choices[0]?.message?.content ?? ''
-    const inputTokens = response.usage?.prompt_tokens ?? 0
-    const outputTokens = response.usage?.completion_tokens ?? 0
+        const text = response.choices[0]?.message?.content ?? ''
+        const inputTokens = response.usage?.prompt_tokens ?? 0
+        const outputTokens = response.usage?.completion_tokens ?? 0
 
-    return { text, model, inputTokens, outputTokens, cost: calculateCost(model, inputTokens, outputTokens) }
+        return { text, model, inputTokens, outputTokens, cost: calculateCost(model, inputTokens, outputTokens) }
+    } catch (err: any) {
+        console.warn(`[ModelRouter] Groq failed (timeout or error): ${err.message}. Falling back to OpenAI...`)
+
+        // Fallback to OpenAI gpt-4o-mini
+        const fallbackModel = 'gpt-4o-mini'
+        const response = await openai.chat.completions.create({
+            model: fallbackModel,
+            max_tokens: params.maxTokens ?? 1024,
+            response_format: params.expectJson ? { type: 'json_object' } : undefined,
+            messages: [
+                { role: 'system', content: params.systemPrompt },
+                { role: 'user', content: params.userMessage },
+            ],
+        })
+
+        const text = response.choices[0]?.message?.content ?? ''
+        const inputTokens = response.usage?.prompt_tokens ?? 0
+        const outputTokens = response.usage?.completion_tokens ?? 0
+
+        return { text, model: fallbackModel, inputTokens, outputTokens, cost: calculateCost(fallbackModel, inputTokens, outputTokens) }
+    }
 }

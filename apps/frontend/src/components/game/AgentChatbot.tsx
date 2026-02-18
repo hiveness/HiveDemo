@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, Bot, User } from 'lucide-react';
 import { AgentConfig } from '../SessionAgentsContext';
+import { ArtifactCard, parseArtifactFromText } from '../Artifacts/ArtifactCard';
 
 interface Message {
     id: string;
@@ -28,14 +29,14 @@ const AgentChatbot: React.FC<AgentChatbotProps> = ({ agentName, agentConfig, isO
     const [isLoading, setIsLoading] = useState(false);
     const [busyness, setBusyness] = useState(0);
     const [isBlinking, setIsBlinking] = useState(false);
-    const [agentMemory, setAgentMemory] = useState<{ learnings: string[]; blink_count: number }>({ learnings: [], blink_count: 0 });
+    const [agentMemory, setAgentMemory] = useState<any>({ learnings: [], blink_count: 0 });
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Initialize memory from config
     useEffect(() => {
-        if (agentConfig?.memory) {
+        if (agentConfig?.memory && typeof agentConfig.memory === 'object') {
             setAgentMemory(agentConfig.memory);
         }
     }, [agentConfig]);
@@ -218,54 +219,74 @@ const AgentChatbot: React.FC<AgentChatbotProps> = ({ agentName, agentConfig, isO
             {/* Messages */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-6 space-y-6 min-h-[300px] scrollbar-hide"
+                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] scrollbar-hide"
             >
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
-                    >
-                        <div className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                            <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${msg.sender === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                {msg.sender === 'user' ? <User size={14} /> : (
-                                    agentConfig?.type === 'blu_guy' && !isGroupChat ?
-                                        <img src="/sprites/blu_guy/Blu%20Guy/Sprites/Idle/Down%20Idle/01.png" className="w-6 h-6 object-contain" alt="" /> :
-                                        <Bot size={14} />
-                                )}
-                            </div>
-                            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user'
-                                ? 'bg-indigo-600 text-white rounded-tr-none'
-                                : 'bg-gray-50 text-gray-700 border border-gray-100 rounded-tl-none'
-                                }`}>
-                                {msg.text.split("Action Taken:")[0].split("Confidence Score:")[0]}
+                {messages.map((msg) => {
+                    // ── Artifact detection: agent messages that are pure JSON artifact payloads ──
+                    if (msg.sender === 'agent') {
+                        const artifact = parseArtifactFromText(msg.text);
+                        if (artifact) {
+                            return (
+                                <div key={msg.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <ArtifactCard
+                                        artifactId={artifact.artifact_id}
+                                        previewUrl={artifact.preview_url}
+                                        type={artifact.type}
+                                        title={artifact.title}
+                                        description={artifact.description}
+                                    />
+                                </div>
+                            );
+                        }
+                    }
 
-                                {msg.sender === 'agent' && (
-                                    <div className="mt-3 space-y-2 border-t border-gray-100 pt-2 text-[11px]">
-                                        {msg.text.includes("Action Taken:") && (
-                                            <div className="flex items-center gap-2 text-indigo-600 font-semibold bg-indigo-50/50 px-2 py-1 rounded-lg">
-                                                <span className="uppercase tracking-widest text-[9px] opacity-70">Action:</span>
-                                                <span>{msg.text.match(/Action Taken:\s*(.*)/)?.[1]?.split("Confidence Score:")[0]}</span>
-                                            </div>
-                                        )}
-                                        {msg.text.includes("Confidence Score:") && (
-                                            <div className="flex items-center gap-2 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-1 rounded-lg w-fit">
-                                                <span className="uppercase tracking-widest text-[9px] opacity-70">Confidence:</span>
-                                                <span>{msg.text.match(/Confidence Score:\s*([\d.]+)/)?.[1]}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                    return (
+                        <div
+                            key={msg.id}
+                            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                        >
+                            <div className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${msg.sender === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {msg.sender === 'user' ? <User size={14} /> : (
+                                        agentConfig?.type === 'blu_guy' && !isGroupChat ?
+                                            <img src="/sprites/blu_guy/Blu%20Guy/Sprites/Idle/Down%20Idle/01.png" className="w-6 h-6 object-contain" alt="" /> :
+                                            <Bot size={14} />
+                                    )}
+                                </div>
+                                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user'
+                                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                                    : 'bg-gray-50 text-gray-700 border border-gray-100 rounded-tl-none'
+                                    }`}>
+                                    {msg.text.split("Action Taken:")[0].split("Confidence Score:")[0]}
 
-                                {msg.blinked && (
-                                    <div className="mt-2 text-[10px] italic text-indigo-400 font-medium border-t border-indigo-50/50 pt-1">
-                                        ✨ Blinked: Memory compressed to maintain clarity.
-                                    </div>
-                                )}
+                                    {msg.sender === 'agent' && (
+                                        <div className="mt-3 space-y-2 border-t border-gray-100 pt-2 text-[11px]">
+                                            {msg.text.includes("Action Taken:") && (
+                                                <div className="flex items-center gap-2 text-indigo-600 font-semibold bg-indigo-50/50 px-2 py-1 rounded-lg">
+                                                    <span className="uppercase tracking-widest text-[9px] opacity-70">Action:</span>
+                                                    <span>{msg.text.match(/Action Taken:\s*(.*)/)?.[1]?.split("Confidence Score:")[0]}</span>
+                                                </div>
+                                            )}
+                                            {msg.text.includes("Confidence Score:") && (
+                                                <div className="flex items-center gap-2 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-1 rounded-lg w-fit">
+                                                    <span className="uppercase tracking-widest text-[9px] opacity-70">Confidence:</span>
+                                                    <span>{msg.text.match(/Confidence Score:\s*([\d.]+)/)?.[1]}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {msg.blinked && (
+                                        <div className="mt-2 text-[10px] italic text-indigo-400 font-medium border-t border-indigo-50/50 pt-1">
+                                            ✨ Blinked: Memory compressed to maintain clarity.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {isLoading && (
                     <div className="flex justify-start animate-pulse">
                         <div className="bg-gray-50 px-4 py-3 rounded-2xl text-sm text-gray-400 italic">

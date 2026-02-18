@@ -3,9 +3,10 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Editor from '../Editor'
 
-export default async function RealmEditor({ params }: { params: { id: string } }) {
+export default async function RealmEditor({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+    const params = await paramsPromise;
 
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -18,11 +19,11 @@ export default async function RealmEditor({ params }: { params: { id: string } }
         return <NotFound />
     }
     const realm = data
-    const map_data = realm.map_data 
+    const map_data = realm.map_data
 
     return (
         <div>
-            <Editor realmData={map_data}/>
+            <Editor realmData={map_data} />
         </div>
     )
 }

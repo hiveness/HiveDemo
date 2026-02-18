@@ -1,6 +1,6 @@
 'use client'
-import GatherApp from '@/components/GatherApp'
+import SimpleChat from '@/components/SimpleChat'
 
 export default function Index() {
-  return <GatherApp />
+  return <SimpleChat />
 }

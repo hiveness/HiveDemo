@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 export async function GET() {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const agents = [
         { id: 'orchestrator', name: 'Antigravity', folder: 'orchestrator' },

@@ -1,0 +1,20 @@
+{
+    "name": "gmail",
+    "display_name": "Gmail",
+    "description": "Read, search, and send emails from your Google account.",
+    "version": "1.0.0",
+    "icon": "📧",
+    "category": "communication",
+    "requires_auth": true,
+    "config_schema": {
+        "GOOGLE_CLIENT_ID": {
+            "type": "string",
+            "secret": true
+        },
+        "GOOGLE_CLIENT_SECRET": {
+            "type": "string",
+            "secret": true
+        }
+    },
+    "enabled_by_default": false
+}

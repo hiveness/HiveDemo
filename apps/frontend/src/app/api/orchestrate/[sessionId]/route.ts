@@ -33,9 +33,9 @@ async function proxyPost(path: string, body?: any) {
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { sessionId: string } }
+    { params }: { params: Promise<{ sessionId: string }> }
 ) {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action') || 'tasks';
 
@@ -66,9 +66,9 @@ export async function GET(
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { sessionId: string } }
+    { params }: { params: Promise<{ sessionId: string }> }
 ) {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const body = await req.json().catch(() => ({}));
     const action = body.action;
 

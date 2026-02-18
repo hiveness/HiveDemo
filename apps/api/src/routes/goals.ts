@@ -19,7 +19,7 @@ export async function goalsRoutes(app: FastifyInstance) {
     })
 
     const pmQueue = new Queue('pm-tasks', {
-        connection,
+        connection: connection as any,
         defaultJobOptions: { removeOnComplete: true, removeOnFail: 1000 }
     })
 
@@ -27,7 +27,7 @@ export async function goalsRoutes(app: FastifyInstance) {
         const body = CreateGoalSchema.safeParse(req.body)
         if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
 
-        const { goal, budget_usd } = body.data
+        const { goal, budget_usd, integrations } = body.data
         const idempotency_key = `goal-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
         // Fetch PM agent to get ID and company ID
@@ -47,6 +47,7 @@ export async function goalsRoutes(app: FastifyInstance) {
             goal,
             agentId: agent?.id,
             companyId: agent?.company_id,
+            integrations // Save integrations for use in system prompts
         }, {
             jobId: idempotency_key, attempts: 3, backoff: { type: 'exponential', delay: 2000 },
         })

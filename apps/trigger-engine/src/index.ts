@@ -2,10 +2,18 @@ import 'dotenv/config'
 import cron from 'node-cron'
 import axios from 'axios'
 import Fastify from 'fastify'
+import { Redis } from 'ioredis'
 import { supabase } from '@hive/db'
 
 const HIVE_API = process.env.HIVE_API_URL!
 const HIVE_KEY = process.env.API_KEY!
+const redisUrl = process.env.UPSTASH_REDIS_URL
+if (!redisUrl) throw new Error('Missing UPSTASH_REDIS_URL')
+
+const api = axios.create({
+    baseURL: HIVE_API,
+    headers: { 'x-api-key': HIVE_KEY },
+})
 
 // Connection for general API calls and DB queries
 const connection = new Redis(redisUrl, {
@@ -212,8 +220,9 @@ async function logTriggerFire(triggerId: string, outcome: string) {
         })
         .eq('id', triggerId)
 
-    // Also log to telemetry
+    // Also log to telemetry (agent_id is required; use trigger ID as a stand-in UUID)
     await supabase.from('telemetry_events').insert({
+        agent_id: triggerId,
         event_type: 'trigger_fire',
         payload: { trigger_id: triggerId, outcome },
         success: outcome !== 'blocked',

@@ -187,7 +187,7 @@ export default class DuckScene extends Phaser.Scene {
             for (let i = 1; i <= 2; i++) {
                 this.load.image(`blu_idle_${dir.toLowerCase()}_${i}`, `/sprites/blu_guy/Blu%20Guy/Sprites/Idle/${dir}%20Idle/0${i}.png`);
             }
-            for (let i = 1; i <= 3; i++) {
+            for (let i = 1; i <= 2; i++) {
                 this.load.image(`blu_walk_${dir.toLowerCase()}_${i}`, `/sprites/blu_guy/Blu%20Guy/Sprites/Walk/${dir}%20Walk/0${i}.png`);
             }
         });
@@ -242,7 +242,7 @@ export default class DuckScene extends Phaser.Scene {
             });
             this.anims.create({
                 key: `blu_walk_${dir}`,
-                frames: [{ key: `blu_walk_${dir}_1` }, { key: `blu_walk_${dir}_2` }, { key: `blu_walk_${dir}_3` }],
+                frames: [{ key: `blu_walk_${dir}_1` }, { key: `blu_walk_${dir}_2` }],
                 frameRate: 6,
                 repeat: -1
             });
@@ -695,9 +695,9 @@ export default class DuckScene extends Phaser.Scene {
             repeat: -1,
             onUpdate: (tween) => {
                 this.zoneHighlightGraphics.clear();
-                this.zoneHighlightGraphics.lineStyle(4, z.color, tween.getValue());
+                this.zoneHighlightGraphics.lineStyle(4, z.color, tween.getValue() as number);
                 this.zoneHighlightGraphics.strokeRoundedRect(z.x - 4, z.y - 4, z.w + 8, z.h + 8, 20);
-                this.zoneHighlightGraphics.fillStyle(z.color, tween.getValue() * 0.2);
+                this.zoneHighlightGraphics.fillStyle(z.color, (tween.getValue() as number) * 0.2);
                 this.zoneHighlightGraphics.fillRoundedRect(z.x, z.y, z.w, z.h, 16);
             }
         });

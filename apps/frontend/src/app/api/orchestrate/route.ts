@@ -21,7 +21,10 @@ export async function POST(req: Request) {
 
         const res = await fetch(`${HIVE_URL()}/run`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.API_KEY || 'test'
+            },
             body: JSON.stringify({ goal }),
         });
 

@@ -4,9 +4,10 @@ import ManageChild from '../ManageChild'
 import NotFound from '../../not-found'
 import { request } from '@/utils/backend/requests'
 
-export default async function Manage({ params }: { params: { id: string } }) {
+export default async function Manage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+    const params = await paramsPromise;
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
     const { data: { session } } = await supabase.auth.getSession()
@@ -24,10 +25,10 @@ export default async function Manage({ params }: { params: { id: string } }) {
 
     return (
         <div>
-            <ManageChild 
-                realmId={realm.id} 
-                startingShareId={realm.share_id} 
-                startingOnlyOwner={realm.only_owner} 
+            <ManageChild
+                realmId={realm.id}
+                startingShareId={realm.share_id}
+                startingOnlyOwner={realm.only_owner}
                 startingName={realm.name}
             />
         </div>

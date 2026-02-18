@@ -4,6 +4,7 @@ import { recallEpisodes, writeEpisode } from './episodic-memory'
 import { searchSemanticMemory, saveToSemanticMemory } from './semantic-memory'
 import { buildContext } from './context-builder'
 import { estimateTokens } from './embeddings'
+import { searchMemory } from './vector-store'
 import type { AssembledContext, MemoryWriteOptions, WorkingMemoryEntry } from './types'
 
 // ── READ: Called by Orchestrator before injecting context into an agent task
@@ -37,7 +38,10 @@ export async function assembleContext(
         ? await searchSemanticMemory(companyId, taskGoal, { limit: 6 })
         : []
 
-    const assembled: AssembledContext = { core, working, episodes, semantic, token_count: 0 }
+    // Vector search for long-term memories (Tier 5)
+    const relevant_memories = await searchMemory(agentId, taskGoal, 5)
+
+    const assembled: AssembledContext = { core, working, episodes, semantic, relevant_memories, token_count: 0 }
     assembled.token_count = estimateTokens(buildContext(assembled))
 
     // If over budget, trim episodic and semantic (never trim core or working)

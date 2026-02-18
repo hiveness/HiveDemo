@@ -11,7 +11,13 @@ const OnboardingModal: React.FC = () => {
     const [devCount, setDevCount] = useState(3);
     const [error, setError] = useState("");
 
-    if (isOnboarded) return null;
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (isOnboarded || !mounted) return null;
 
     const handleSubmit = async () => {
         if (!goal.trim()) {

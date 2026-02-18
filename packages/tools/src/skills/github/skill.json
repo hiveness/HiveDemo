@@ -1,0 +1,16 @@
+{
+    "name": "github",
+    "display_name": "GitHub",
+    "description": "Read and write code to GitHub repositories.",
+    "version": "1.0.0",
+    "icon": "🐙",
+    "category": "code",
+    "requires_auth": true,
+    "config_schema": {
+        "GITHUB_TOKEN": {
+            "type": "string",
+            "secret": true
+        }
+    },
+    "enabled_by_default": false
+}

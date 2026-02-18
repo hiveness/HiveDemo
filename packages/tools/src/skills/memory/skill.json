@@ -1,0 +1,10 @@
+{
+    "name": "memory",
+    "display_name": "Agent Memory",
+    "description": "Save, search, and manage the agent's persistent long-term memory across sessions.",
+    "version": "2.0.0",
+    "icon": "🧠",
+    "category": "data",
+    "requires_auth": false,
+    "enabled_by_default": true
+}

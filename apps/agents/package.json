@@ -4,8 +4,9 @@
     "private": true,
     "dependencies": {
         "@hive/db": "*",
-        "@hive/shared": "*",
         "@hive/memory": "*",
+        "@hive/shared": "*",
+        "@hive/tools": "^1.0.0",
         "bullmq": "^5.1.0",
         "dotenv": "^16.3.1",
         "ioredis": "^5.3.2",

@@ -48,6 +48,7 @@ export interface AssembledContext {
     working: WorkingMemoryEntry[]
     episodes: Episode[]
     semantic: SemanticMemory[]
+    relevant_memories: any[]
     token_count: number          // estimated total
 }
 

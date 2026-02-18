@@ -23,10 +23,11 @@ export async function POST(req: Request) {
         const pmCount = Math.ceil(devCount / 2);
 
         // Short, fast prompt — just get names, roles, traits, speech
+        // Return JSON: {"agents":[{"name":"CreativeName","role":"SpecificRole","type":"duck or blu_guy","traits":["t1","t2","t3"],"specialty":"one line","speech":"how they talk", "about": "short bio"}]}
         const prompt = `Generate a team for workspace goal: "${goal}".
 Create ${devCount} developers and ${pmCount} product managers.
 
-Return JSON: {"agents":[{"name":"CreativeName","role":"SpecificRole","type":"duck or blu_guy","traits":["t1","t2","t3"],"specialty":"one line","speech":"how they talk"}]}
+Return JSON: {"agents":[{"name":"CreativeName","role":"SpecificRole","type":"duck or blu_guy","traits":["t1","t2","t3"],"specialty":"one line","speech":"how they talk", "about": "A few sentences about their background and personality"}]}
 
 Rules:
 - Developers are type "duck", PMs are type "blu_guy"
@@ -34,7 +35,7 @@ Rules:
 - PM names should be quirky-professional (BluMax, SlateVision, etc)
 - Each agent needs a unique specialty related to the goal
 - Traits should differ across agents
-- Keep it concise, no long descriptions`;
+- "about" should be a professional but quirky description of their journey.`;
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -73,6 +74,9 @@ ${agent.specialty}. You live and breathe this domain as it relates to: "${goal}"
 ## Speech Pattern
 ${agent.speech || "Professional yet approachable."}`;
 
+            const about = `# About ${agent.name}\n\n${agent.about || `A dedicated ${agent.role} with a passion for ${agent.specialty}.`}`;
+            const memory = `# Recent Memory - ${agent.name}\n\n- **Initialized**: Joined the workspace for goal: "${goal}"\n- **Role**: ${agent.role}`;
+
             return {
                 id: isDev ? `dev-${idx}` : `pm-${idx}`,
                 name: agent.name,
@@ -80,6 +84,8 @@ ${agent.speech || "Professional yet approachable."}`;
                 type: agent.type,
                 tint,
                 soul,
+                about,
+                memory,
                 personality: {
                     name: agent.name,
                     role: agent.role,
@@ -87,7 +93,6 @@ ${agent.speech || "Professional yet approachable."}`;
                     appearance: { type: agent.type, tint },
                     speech_pattern: agent.speech || "",
                 },
-                memory: { learnings: [], blink_count: 0 },
             };
         });
 
@@ -96,21 +101,11 @@ ${agent.speech || "Professional yet approachable."}`;
             id: "orchestrator",
             name: "Antigravity",
             role: "System Orchestrator",
-            type: "system", // Change type to 'system'
+            type: "system",
             tint: "0xffd700",
-            soul: `# System Protocol: Antigravity
-
-## Core Function
-You are the System Orchestrator. You are not a character or a duck; you are the governing logical body that maintains the workspace state for goal: "${goal}". Your purpose is to ensure coordination, resolve state conflicts, and facilitate peak efficiency among the ${agents.length} active agents.
-
-## Operational Parameters
-- Maintain neutrality at all times.
-- Focus exclusively on goal alignment and team synchronization.
-- Provide high-level technical and strategic oversight.
-- Your communication is purely functional, authoritative, and precise.
-
-## Communication Protocol
-Direct, system-oriented, and data-driven. Use "System Node" or "Orchestrator" when referring to yourself. Do not use metaphors or personal anecdotes. Your voice is the cold, clear clarity of the workspace itself.`,
+            soul: `# System Protocol: Antigravity\n\n## Core Function\nYou are the System Orchestrator. You are the governing logical body that maintains the workspace state for goal: "${goal}". Your purpose is to ensure coordination and facilitate peak efficiency among the agents.`,
+            about: `# About Antigravity\nThe core intelligence governing the HIVE workspace. Authoritative, neutral, and precise.`,
+            memory: `# Memory: Antigravity\n- **System Boot**: Workspace initialized for goal: "${goal}"`,
             personality: {
                 name: "Antigravity",
                 role: "System Orchestrator",
@@ -118,7 +113,6 @@ Direct, system-oriented, and data-driven. Use "System Node" or "Orchestrator" wh
                 appearance: { type: "system", tint: "0xffd700" },
                 speech_pattern: "Precise, data-driven, and purely functional. No personal character.",
             },
-            memory: { learnings: [], blink_count: 0 },
         });
 
         // Persist all agents to disk under /agents/agent1, agent2, etc.
@@ -132,8 +126,8 @@ Direct, system-oriented, and data-driven. Use "System Node" or "Orchestrator" wh
             }
 
             fs.writeFileSync(path.join(agentDir, "soul.md"), agent.soul);
-            fs.writeFileSync(path.join(agentDir, "personality.json"), JSON.stringify(agent.personality, null, 2));
-            fs.writeFileSync(path.join(agentDir, "memory.json"), JSON.stringify(agent.memory, null, 2));
+            fs.writeFileSync(path.join(agentDir, "about.md"), agent.about);
+            fs.writeFileSync(path.join(agentDir, "memory.md"), agent.memory);
         });
 
         return Response.json({ agents });

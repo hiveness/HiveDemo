@@ -1,0 +1,16 @@
+{
+    "name": "web_search",
+    "display_name": "Web Search",
+    "description": "Search the web for real-time information and trends.",
+    "version": "1.0.0",
+    "icon": "🔍",
+    "category": "research",
+    "requires_auth": false,
+    "config_schema": {
+        "SERP_API_KEY": {
+            "type": "string",
+            "secret": true
+        }
+    },
+    "enabled_by_default": true
+}

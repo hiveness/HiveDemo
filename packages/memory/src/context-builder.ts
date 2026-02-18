@@ -40,6 +40,14 @@ Core values: ${ctx.core.company.core_values.join(', ')}`)
         sections.push(`## RELEVANT COMPANY KNOWLEDGE\n${lines.join('\n')}`)
     }
 
+    // ── Vector Memories
+    if (ctx.relevant_memories && ctx.relevant_memories.length > 0) {
+        const lines = ctx.relevant_memories.map((m: any) =>
+            `- ${m.content} (similarity: ${(m.similarity * 100).toFixed(1)}%)`
+        )
+        sections.push(`## RELEVANT MEMORIES\n${lines.join('\n')}`)
+    }
+
     // ── Working Memory (recent task messages — last, closest to the task)
     if (ctx.working.length > 0) {
         const lines = ctx.working.map(w => `[${w.role}]: ${w.content}`)

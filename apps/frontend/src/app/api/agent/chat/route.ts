@@ -2,14 +2,66 @@ import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
 import { createClient } from "@/utils/supabase/server";
-import { tools, handleToolCall } from "@/utils/agent-tools";
+import { tools, handleToolCall, needsApproval } from "@/utils/agent-tools";
+
+// Allow this route to run for up to 300 seconds (Vercel Pro / self-hosted).
+// This is required because the approval gate can wait up to 5 minutes for user input.
+export const maxDuration = 300;
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ── Approval Gate ─────────────────────────────────────────────────────────────
+const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+async function requestAndWaitForApproval(
+    toolName: string,
+    args: Record<string, unknown>,
+    sessionId: string,
+    agentId: string
+): Promise<{ decision: 'approved' | 'denied' | 'timeout'; requestId: string }> {
+    const supabase = await createClient();
+    const requestId = crypto.randomUUID();
+
+    // 1. Create the approval request in Supabase
+    await supabase.from('approval_requests').insert({
+        id: requestId,
+        session_id: sessionId,
+        agent_id: agentId,
+        tool: toolName,
+        args,
+        status: 'pending',
+    });
+
+    // 2. Poll Supabase for a resolution (approved/denied)
+    const pollInterval = 1000;
+    const maxPolls = APPROVAL_TIMEOUT_MS / pollInterval;
+
+    for (let i = 0; i < maxPolls; i++) {
+        await new Promise(r => setTimeout(r, pollInterval));
+
+        const { data } = await supabase
+            .from('approval_requests')
+            .select('status')
+            .eq('id', requestId)
+            .single();
+
+        if (data?.status === 'approved') return { decision: 'approved', requestId };
+        if (data?.status === 'denied') return { decision: 'denied', requestId };
+    }
+
+    // 3. Timeout — mark and return
+    await supabase
+        .from('approval_requests')
+        .update({ status: 'timeout', resolved_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+    return { decision: 'timeout', requestId };
+}
+
 export async function POST(req: Request) {
-    const supabase = createClient();
+    const supabase = await createClient();
     try {
         const { agentId, message, history, inlineConfig, sessionId } = await req.json();
 
@@ -92,62 +144,101 @@ Always provide a concise "Action Taken" and "Confidence Score" (0.0 to 1.0) at t
 IMPORTANT: Keep replies SHORT — 1 to 3 sentences max.
 `;
 
-        let currentMessages: any[] = [
+        const MAX_ITERATIONS = 20;
+        let iteration = 0;
+        const toolCallLog: { tool: string; iteration: number }[] = [];
+        let hiveSessionId: string | null = null;
+
+        // Start with system prompt + history + new user message
+        let messages: any[] = [
             { role: "system", content: systemPrompt },
-            ...history.slice(-10),
+            ...history.slice(-20),               // keep last 20 turns for context
             { role: "user", content: message }
         ];
 
-        // 1. Get Response from OpenAI with Tool Support
-        let completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: currentMessages,
-            tools: tools as any,
-            tool_choice: "auto",
-        });
+        let finalResponseMessage: any = null;
 
-        let responseMessage = completion.choices[0].message;
+        while (iteration < MAX_ITERATIONS) {
+            iteration++;
 
-        // 2. Handle Tool Calls Loop
-        let hiveSessionId: string | null = null;
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o",                   // REQUIRED: upgrade from gpt-4o-mini
+                messages,
+                tools: tools as any,
+                tool_choice: "auto",
+            });
 
-        if (responseMessage.tool_calls) {
-            currentMessages.push(responseMessage);
+            const choice = completion.choices[0];
+            const responseMessage = choice.message;
+
+            // ── Case 1: No tool calls → agent is done, return final text ──
+            if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
+                finalResponseMessage = responseMessage;
+                break;
+            }
+
+            // ── Case 2: Tool calls present → execute them all, feed results back ──
+            messages.push(responseMessage);      // add assistant turn with tool_calls
 
             for (const toolCall of responseMessage.tool_calls) {
-                const tc = toolCall as any;
-                if (!tc.function) continue;
+                const toolName = toolCall.function.name;
+                const toolArgs = JSON.parse(toolCall.function.arguments);
 
-                const result = await handleToolCall(tc.function.name, JSON.parse(tc.function.arguments), {
-                    sessionId,
-                    agentDbId: agentDbId || ""
-                });
+                let result: string;
+
+                // ── Approval Gate ──────────────────────────────────────────────
+                if (needsApproval(toolName)) {
+                    const currentSessionId = sessionId || `session-${Date.now()}`;
+                    const currentAgentId = agentDbId || agentId || 'unknown';
+
+                    const { decision, requestId } = await requestAndWaitForApproval(
+                        toolName,
+                        toolArgs,
+                        currentSessionId,
+                        currentAgentId
+                    );
+
+                    if (decision === 'approved') {
+                        result = await handleToolCall(toolName, toolArgs, {
+                            sessionId: currentSessionId,
+                            agentDbId: agentDbId || "",
+                        });
+                    } else if (decision === 'denied') {
+                        result = `Tool "${toolName}" was denied by the user. Do not retry this tool. Find an alternative approach or ask the user what they'd like to do instead.`;
+                    } else {
+                        result = `Tool "${toolName}" timed out waiting for approval (5 minutes elapsed). Proceeding without it.`;
+                    }
+                } else {
+                    // Auto-approved — execute immediately
+                    result = await handleToolCall(toolName, toolArgs, {
+                        sessionId,
+                        agentDbId: agentDbId || "",
+                    });
+                }
 
                 // Extract HIVE session ID if launch_hive_session was called
-                if (tc.function.name === 'launch_hive_session') {
+                if (toolName === 'launch_hive_session') {
                     try {
                         const parsed = JSON.parse(result);
                         if (parsed.session_id) hiveSessionId = parsed.session_id;
                     } catch { }
                 }
 
-                currentMessages.push({
-                    tool_call_id: tc.id,
+                // Track for response metadata
+                toolCallLog.push({ tool: toolName, iteration });
+
+                // Feed result back as a tool message
+                messages.push({
                     role: "tool",
-                    name: tc.function.name,
+                    tool_call_id: toolCall.id,
                     content: result,
                 });
             }
 
-            // Get final response after tool execution
-            completion = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
-                messages: currentMessages,
-            });
-            responseMessage = completion.choices[0].message;
+            // Loop continues — the model will see all tool results and decide what to do next
         }
 
-        const responseText = responseMessage.content || "";
+        const responseText = finalResponseMessage?.content || (messages.findLast((m: any) => m.role === "assistant" && typeof m.content === "string")?.content ?? "I've been working on this for a while, but couldn't reach a final conclusion.");
 
         // Log Agent Message to Supabase
         if (sessionId && agentDbId) {
@@ -177,6 +268,9 @@ IMPORTANT: Keep replies SHORT — 1 to 3 sentences max.
             memoryCount: memory.learnings.length,
             updatedMemory: inlineConfig ? memory : undefined,
             hive_session_id: hiveSessionId,
+            iterations_used: iteration,
+            tool_calls_made: toolCallLog,
+            partial: iteration >= MAX_ITERATIONS && !finalResponseMessage,
         });
 
     } catch (error: any) {

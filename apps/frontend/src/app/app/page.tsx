@@ -6,7 +6,7 @@ import { getVisitedRealms } from '@/utils/supabase/getVisitedRealms'
 
 export default async function App() {
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
     const { data: { session } } = await supabase.auth.getSession()
@@ -33,7 +33,7 @@ export default async function App() {
         <div>
             <Navbar />
             <h1 className='text-3xl pl-4 sm:pl-8 pt-8'>Your Spaces</h1>
-            <RealmsMenu realms={realms} errorMessage={errorMessage}/>
+            <RealmsMenu realms={realms} errorMessage={errorMessage} />
         </div>
     )
 }

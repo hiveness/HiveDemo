@@ -10,6 +10,9 @@
     "dev:pm": "npx tsx apps/agents/src/pm-agent.ts",
     "dev:dev": "npx tsx apps/agents/src/dev-agent.ts",
     "dev:orchestrator": "npx tsx apps/orchestrator/src/index.ts",
+    "dev:trigger-engine": "npx tsx apps/trigger-engine/src/index.ts",
+    "dev:bot": "npx tsx apps/telegram-bot/src/index.ts",
+    "cli": "npx tsx apps/cli/src/index.ts",
     "build": "turbo build"
   },
   "devDependencies": {

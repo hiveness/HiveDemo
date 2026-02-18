@@ -17,7 +17,7 @@ const MODEL_MAP: Record<ModelTier, string> = {
 
 // Groq free = $0. These are for telemetry reference when you switch to paid.
 const PRICING: Record<string, { input: number; output: number }> = {
-    'llama3-8b-8192': { input: 0.05, output: 0.10 },
+    'llama-3.1-8b-instant': { input: 0.05, output: 0.10 },
     'llama-3.3-70b-versatile': { input: 0.59, output: 0.79 },
     'gpt-4o-mini': { input: 0.15, output: 0.60 },
     'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },

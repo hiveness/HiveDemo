@@ -7,6 +7,7 @@ import { onboardingRoutes } from './routes/onboarding'
 const app = Fastify({ logger: true })
 
 app.addHook('onRequest', async (req, reply) => {
+    console.log(`[API] ${req.method} ${req.url}`)
     if (req.url === '/health' || req.method === 'OPTIONS') return
     if (req.headers['x-api-key'] !== process.env.API_KEY) {
         reply.status(401).send({ error: 'Unauthorized' })

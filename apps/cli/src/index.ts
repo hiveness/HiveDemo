@@ -2,7 +2,7 @@ import 'dotenv/config'
 import axios from 'axios'
 import * as readline from 'readline'
 
-const API_URL = process.env.HIVE_API_URL || 'http://localhost:3000'
+const API_URL = process.env.HIVE_API_URL || 'http://127.0.0.1:3000'
 const API_KEY = process.env.API_KEY || 'test'
 
 const rl = readline.createInterface({

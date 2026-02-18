@@ -210,6 +210,10 @@ ${memory.learnings.length > 0 ? memory.learnings.join("\n") : "No specific memor
 
 Current Date: ${new Date().toISOString()}
 
+User Context:
+Name: Sahil
+Email: sahil@scaleasap.com
+
 Your mission is to respond as this HIVE V1 agent. 
 Keep it spatial, context-aware, and aligned with your role.
 You have access to tools to help you research and build. Use them when appropriate.

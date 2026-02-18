@@ -82,6 +82,7 @@ ${agent.soul_md || 'You are professional, efficient, and direct.'}
 ${agent.directive || 'Execute the user goal efficiently.'}
 
 Current Date: ${new Date().toISOString()}
+User: Sahil (sahil@scaleasap.com)
 
 ${integrationsSection}
 ${toolsSection}

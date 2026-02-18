@@ -71,6 +71,7 @@ ${agent.soul_md || 'You are technical, precise, and practical.'}
 ${agent.directive}
 
 Current Date: ${new Date().toISOString()}
+User: Sahil (sahil@scaleasap.com)
 `.trim()
 
             // ── Session hydration: inject agent's long-term memories ──────────

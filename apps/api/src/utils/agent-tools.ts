@@ -9,7 +9,7 @@ export const APPROVAL_REQUIRED = {
     always: [
         'exec_command',
         'run_python',
-        'gmail_send',
+        // 'gmail_send', // Moved to auto for now to allow chat-based sending
         'calendar_create',
         'calendar_delete',
         'delete_file',
@@ -26,6 +26,7 @@ export const APPROVAL_REQUIRED = {
         'create_directory',
         'gmail_list',
         'gmail_read',
+        'gmail_send', // Auto-approved for chat interaction
         'gmail_draft',
         'calendar_list',
         'browser_open',

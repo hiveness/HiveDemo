@@ -12,6 +12,7 @@
     "dev:orchestrator": "npx tsx apps/orchestrator/src/index.ts",
     "dev:trigger-engine": "npx tsx apps/trigger-engine/src/index.ts",
     "dev:bot": "npx tsx apps/telegram-bot/src/index.ts",
+    "dev:frontend": "npm run dev --workspace=@hive/frontend",
     "cli": "npx tsx apps/cli/src/index.ts",
     "build": "turbo build"
   },

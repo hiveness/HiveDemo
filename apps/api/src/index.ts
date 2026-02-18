@@ -16,7 +16,22 @@ app.addHook('onRequest', async (req, reply) => {
 
 app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
+app.get('/', async (req, reply) => {
+    reply.type('text/html').send(`
+        <html>
+            <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white;">
+                <h1>🐝 Hive API is running</h1>
+                <p>The frontend is available at <a href="http://localhost:3000" style="color: #38bdf8;">http://localhost:3000</a></p>
+                <div style="background: #1e293b; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                    <code style="color: #94a3b8;">GET /health</code> - API Status
+                </div>
+            </body>
+        </html>
+    `)
+})
+
 app.register(goalsRoutes, { prefix: '/goals' })
+app.register(goalsRoutes, { prefix: '/run' })  // Alias for legacy/frontend compatibility
 app.register(tasksRoutes, { prefix: '/tasks' })
 app.register(onboardingRoutes, { prefix: '/onboarding' })
 

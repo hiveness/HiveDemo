@@ -10,10 +10,18 @@ export async function goalsRoutes(app: FastifyInstance) {
 
     const connection = new Redis(redisUrl, {
         maxRetriesPerRequest: null,
+        retryStrategy: (times) => {
+            const delay = Math.min(times * 1000, 10000)
+            console.warn(`[Redis] Connection lost. Retrying in ${delay}ms...`)
+            return delay
+        },
         ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {})
     })
 
-    const pmQueue = new Queue('pm-tasks', { connection })
+    const pmQueue = new Queue('pm-tasks', {
+        connection,
+        defaultJobOptions: { removeOnComplete: true, removeOnFail: 1000 }
+    })
 
     app.post('/', async (req, reply) => {
         const body = CreateGoalSchema.safeParse(req.body)

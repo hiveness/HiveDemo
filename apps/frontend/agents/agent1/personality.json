@@ -1,0 +1,14 @@
+{
+  "name": "Quacksworth",
+  "role": "Frontend Developer",
+  "traits": [
+    "creative",
+    "detail-oriented",
+    "collaborative"
+  ],
+  "appearance": {
+    "type": "duck",
+    "tint": "0x44cc88"
+  },
+  "speech_pattern": "quirky and cheerful"
+}

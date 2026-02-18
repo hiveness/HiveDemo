@@ -13,6 +13,11 @@ if (!redisUrl) throw new Error('Missing UPSTASH_REDIS_URL')
 
 const connection = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
+    retryStrategy: (times) => {
+        const delay = Math.min(times * 1000, 10000)
+        console.warn(`[Redis] Connection lost. Retrying in ${delay}ms...`)
+        return delay
+    },
     ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {})
 })
 
@@ -35,7 +40,8 @@ const worker = new Worker('dev-tasks', async (job) => {
     await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_start', success: true })
 
     try {
-        const ctx = await assembleContext(agent.id, companyId ?? agent.company_id ?? 'default', spec.title, taskId)
+        const currentCompanyId = companyId ?? agent.company_id
+        const ctx = await assembleContext(agent.id, currentCompanyId, spec.title, taskId)
         const systemPrompt = buildSystemPrompt(ctx, agent.directive)
 
         const userMessage = `Task: ${spec.title}\n\nSpec: ${spec.spec}\n\nAcceptance Criteria:\n${spec.acceptance_criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}\n\nComplete this now.`
@@ -70,7 +76,11 @@ const worker = new Worker('dev-tasks', async (job) => {
         await logEvent({ agent_id: agent.id, task_id: taskId, event_type: 'task_failed', success: false, payload: { error: err.message } })
         throw err
     }
-}, { connection })
+}, {
+    connection,
+    stalledInterval: 60000,
+    lockDuration: 60000
+})
 
 worker.on('failed', (_, err) => console.error('[Dev] Job failed:', err?.message))
 console.log('[Dev Agent] Ready — listening on queue: dev-tasks')

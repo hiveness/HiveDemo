@@ -1,0 +1,14 @@
+{
+  "name": "Mallory",
+  "role": "Backend Developer",
+  "traits": [
+    "analytical",
+    "innovative",
+    "team player"
+  ],
+  "appearance": {
+    "type": "duck",
+    "tint": "0x4488ff"
+  },
+  "speech_pattern": "concise and technical"
+}

@@ -7,10 +7,14 @@ import { supabase } from '@hive/db'
 const HIVE_API = process.env.HIVE_API_URL!
 const HIVE_KEY = process.env.API_KEY!
 
-const api = axios.create({
-    baseURL: HIVE_API,
-    headers: { 'x-api-key': HIVE_KEY },
+// Connection for general API calls and DB queries
+const connection = new Redis(redisUrl, {
+    tls: redisUrl.startsWith('rediss://') ? {} : undefined,
+    maxRetriesPerRequest: null,
 })
+
+// Dedicated connection for the trigger engine runner (if needed for future BullMQ integration)
+// For now, we use the main connection for Supabase calls.
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -498,7 +502,7 @@ async function start() {
     // Reload schedule triggers every 10 minutes (picks up DB changes)
     cron.schedule('*/10 * * * *', loadScheduleTriggers)
 
-    const PORT = Number(process.env.PORT ?? 3002)
+    const PORT = Number(process.env.PORT ?? 3003)
     await app.listen({ port: PORT, host: '0.0.0.0' })
     console.log(`[Trigger Engine] Running on port ${PORT}`)
 }

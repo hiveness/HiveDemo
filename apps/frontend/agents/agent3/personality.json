@@ -1,0 +1,14 @@
+{
+  "name": "Teal",
+  "role": "Full Stack Developer",
+  "traits": [
+    "versatile",
+    "adaptable",
+    "problem-solver"
+  ],
+  "appearance": {
+    "type": "duck",
+    "tint": "0xff6644"
+  },
+  "speech_pattern": "casual and friendly"
+}

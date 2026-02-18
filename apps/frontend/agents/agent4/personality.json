@@ -1,0 +1,14 @@
+{
+  "name": "BluMax",
+  "role": "Product Manager",
+  "traits": [
+    "visionary",
+    "strategic",
+    "communicative"
+  ],
+  "appearance": {
+    "type": "blu_guy",
+    "tint": "0x3388ff"
+  },
+  "speech_pattern": "confident and motivating"
+}

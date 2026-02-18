@@ -1,6 +1,7 @@
-import 'dotenv/config'
 import { Telegraf, Markup } from 'telegraf'
 import axios from 'axios'
+import { createClient } from '@supabase/supabase-js'
+import 'dotenv/config'
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN
 if (!botToken) throw new Error('Missing TELEGRAM_BOT_TOKEN')
@@ -19,6 +20,11 @@ const api = axios.create({
     baseURL: HIVE_API,
     headers: { 'x-api-key': HIVE_KEY },
 })
+
+const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+)
 
 async function postGoal(goal: string, budgetUsd = 2) {
     const { data } = await api.post('/goals', { goal, budget_usd: budgetUsd })
@@ -256,8 +262,6 @@ async function runGoal(ctx: any, goal: string) {
             `🚀 <b>Running:</b> ${goal}\nTask <code>${task.task_id.slice(0, 8)}</code> — I'll notify you when done.`,
             { parse_mode: 'HTML' }
         )
-
-        pollAndNotify(task.task_id, ctx.chat.id)
     } catch (err: any) {
         await ctx.telegram.editMessageText(
             ctx.chat.id, sent.message_id, undefined,
@@ -266,62 +270,65 @@ async function runGoal(ctx: any, goal: string) {
     }
 }
 
-// ── Poll + notify when task completes ─────────────────────────────────────────
-async function pollAndNotify(taskId: string, chatId: number, attempts = 0) {
-    if (attempts > 36) { // 3 minute timeout
-        await bot.telegram.sendMessage(chatId,
-            `⏰ Task <code>${taskId.slice(0, 8)}</code> is taking longer than expected.\nCheck with /result ${taskId.slice(0, 8)}`,
-            { parse_mode: 'HTML' }
-        )
-        return
-    }
+// ── Realtime Subscriptions ────────────────────────────────────────────────────
+async function setupSubscriptions() {
+    console.log('[Telegram Bot] Subscribing to task updates...')
 
-    setTimeout(async () => {
-        try {
-            const { task, subtasks } = await getTask(taskId)
+    supabase
+        .channel('tasks-all')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, async (payload) => {
+            const task = payload.new as any
+            const old = payload.old as any
+
+            // Only notify on status completion transitions
+            const statusChanged = !old || (task.status !== old.status)
+
+            console.log(`[Bot] Task Update: ${task.id.slice(0, 8)} | ${old?.status} -> ${task.status} | Changed: ${statusChanged}`)
+
+            if (!statusChanged) return
+            if (!['completed', 'failed', 'blocked_budget'].includes(task.status)) return
+
+            // Fetch subtasks if any
+            const { data: subtasks } = await supabase.from('tasks').select('goal, status').eq('parent_task_id', task.id)
 
             if (task.status === 'completed') {
-                const completedSubs = (subtasks as any[]).filter(s => s.status === 'completed')
+                const completedSubs = (subtasks ?? []).filter(s => s.status === 'completed')
                 const subLines = completedSubs.map(s => `✅ ${s.goal}`).join('\n')
                 const preview = task.result?.slice(0, 700) ?? ''
                 const truncated = (task.result?.length ?? 0) > 700 ? '\n\n<i>(use /result for full output)</i>' : ''
 
                 await bot.telegram.sendMessage(
-                    chatId,
+                    FOUNDER_CHAT_ID,
                     `✅ <b>Done:</b> ${task.goal}\n` +
                     (subLines ? `\n<b>Subtasks:</b>\n${subLines}\n` : '') +
                     (preview ? `\n<b>Result:</b>\n${preview}${truncated}` : ''),
                     {
                         parse_mode: 'HTML',
-                        ...Markup.inlineKeyboard([[
-                            Markup.button.callback('👍 Approved', `ok:${task.id}`),
-                            Markup.button.callback('🔁 Redo', `redo:${task.id}:${encodeURIComponent(task.goal.slice(0, 60))}`),
-                        ]])
+                        reply_markup: {
+                            inline_keyboard: [[
+                                { text: '👍 Approved', callback_data: `ok:${task.id}` },
+                                { text: '🔁 Redo', callback_data: `redo:${task.id}:${encodeURIComponent(task.goal.slice(0, 60))}` },
+                            ]]
+                        }
                     }
                 )
-
             } else if (task.status === 'failed') {
                 await bot.telegram.sendMessage(
-                    chatId,
+                    FOUNDER_CHAT_ID,
                     `❌ <b>Failed:</b> ${task.goal}\n${task.result ?? 'No error details.'}`,
                     { parse_mode: 'HTML' }
                 )
-
             } else if (task.status === 'blocked_budget') {
                 await bot.telegram.sendMessage(
-                    chatId,
+                    FOUNDER_CHAT_ID,
                     `💸 <b>Budget cap hit:</b> ${task.goal}\n${task.result}`,
                     { parse_mode: 'HTML' }
                 )
-
-            } else {
-                // Still running — keep polling
-                pollAndNotify(taskId, chatId, attempts + 1)
             }
-        } catch {
-            pollAndNotify(taskId, chatId, attempts + 1)
-        }
-    }, 5_000) // check every 5 seconds
+        })
+        .subscribe((status, err) => {
+            console.log(`[Bot] Subscription status: ${status}`, err ?? '')
+        })
 }
 
 // ── Inline button callbacks ───────────────────────────────────────────────────
@@ -378,9 +385,80 @@ bot.action(/^redo:([^:]+):(.+)$/, async (ctx) => {
     await runGoal(ctx, goal)
 })
 
+// ── Polling Fallback ──────────────────────────────────────────────────────────
+let lastPoll = new Date().toISOString()
+
+async function pollFallback() {
+    console.log('[Bot] Starting polling fallback (every 10s)...')
+    setInterval(async () => {
+        try {
+            const { data: tasks } = await supabase
+                .from('tasks')
+                .select('*')
+                .gt('updated_at', lastPoll)
+                .in('status', ['completed', 'failed', 'blocked_budget'])
+
+            if (!tasks || tasks.length === 0) return
+
+            // Update lastPoll to the most recent update time
+            lastPoll = new Date().toISOString()
+
+            for (const task of tasks) {
+                // Simulate the event structure for the existing handler logic
+                // querying subtasks manually since we don't have the event payload
+                const { data: subtasks } = await supabase.from('tasks').select('goal, status').eq('parent_task_id', task.id)
+
+                if (task.status === 'completed') {
+                    const completedSubs = (subtasks ?? []).filter(s => s.status === 'completed')
+                    const subLines = completedSubs.map(s => `✅ ${s.goal}`).join('\n')
+                    const preview = task.result?.slice(0, 700) ?? ''
+                    const truncated = (task.result?.length ?? 0) > 700 ? '\n\n<i>(use /result for full output)</i>' : ''
+
+                    await bot.telegram.sendMessage(
+                        FOUNDER_CHAT_ID,
+                        `✅ <b>Done:</b> ${task.goal}\n` +
+                        (subLines ? `\n<b>Subtasks:</b>\n${subLines}\n` : '') +
+                        (preview ? `\n<b>Result:</b>\n${preview}${truncated}` : ''),
+                        {
+                            parse_mode: 'HTML',
+                            reply_markup: {
+                                inline_keyboard: [[
+                                    { text: '👍 Approved', callback_data: `ok:${task.id}` },
+                                    { text: '🔁 Redo', callback_data: `redo:${task.id}:${encodeURIComponent(task.goal.slice(0, 60))}` },
+                                ]]
+                            }
+                        }
+                    )
+                } else if (task.status === 'failed') {
+                    await bot.telegram.sendMessage(
+                        FOUNDER_CHAT_ID,
+                        `❌ <b>Failed:</b> ${task.goal}\n${task.result ?? 'No error details.'}`,
+                        { parse_mode: 'HTML' }
+                    )
+                } else if (task.status === 'blocked_budget') {
+                    await bot.telegram.sendMessage(
+                        FOUNDER_CHAT_ID,
+                        `💸 <b>Budget cap hit:</b> ${task.goal}\n${task.result}`,
+                        { parse_mode: 'HTML' }
+                    )
+                }
+                console.log(`[Bot] Polled update: ${task.id} (${task.status})`)
+            }
+        } catch (err) {
+            console.error('[Bot] Polling error:', err)
+        }
+    }, 10000)
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
-bot.launch()
-console.log('[Telegram Bot] Running')
+async function boot() {
+    await setupSubscriptions()
+    pollFallback() // Start polling as backup
+    console.log('[Telegram Bot] Running')
+    await bot.launch()
+}
+
+boot().catch(console.error)
 
 process.once('SIGINT', () => bot.stop('SIGINT'))
 process.once('SIGTERM', () => bot.stop('SIGTERM'))

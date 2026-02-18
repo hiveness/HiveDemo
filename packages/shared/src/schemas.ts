@@ -13,7 +13,8 @@ export const SubtaskSchema = z.object({
 })
 
 export const PMResponseSchema = z.object({
-    subtasks: z.array(SubtaskSchema),
+    subtasks: z.array(SubtaskSchema).default([]),
+    direct_answer: z.string().optional(),
 })
 
 export type CreateGoal = z.infer<typeof CreateGoalSchema>

@@ -1,0 +1,14 @@
+{
+  "name": "SlateVision",
+  "role": "Product Manager",
+  "traits": [
+    "insightful",
+    "organized",
+    "empathetic"
+  ],
+  "appearance": {
+    "type": "blu_guy",
+    "tint": "0x8844ff"
+  },
+  "speech_pattern": "thoughtful and engaging"
+}

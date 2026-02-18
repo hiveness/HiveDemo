@@ -41,7 +41,9 @@ rl.on('line', async (line) => {
         console.log('\x1b[32m%s\x1b[0m', `🚀 Queued: ${data.task_id}`)
         console.log('\x1b[2m%s\x1b[0m', 'Agents are working. Use /tasks (Telegram) or wait for logs.')
     } catch (err: any) {
-        console.log('\x1b[31m%s\x1b[0m', `❌ Error: ${err.response?.data?.error || err.message}`)
+        const errorData = err.response?.data?.error
+        const errorMessage = typeof errorData === 'object' ? JSON.stringify(errorData) : (errorData || err.message)
+        console.log('\x1b[31m%s\x1b[0m', `❌ Error: ${errorMessage}`)
     }
 
     console.log('')

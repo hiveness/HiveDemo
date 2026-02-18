@@ -37,6 +37,7 @@ export async function callModel(params: {
     expectJson?: boolean
 }): Promise<{ text: string; model: string; inputTokens: number; outputTokens: number; cost: number }> {
     const model = MODEL_MAP[params.tier]
+    console.log(`[ModelRouter] Calling ${model} for tier ${params.tier}`)
 
     const response = await groq.chat.completions.create({
         model,

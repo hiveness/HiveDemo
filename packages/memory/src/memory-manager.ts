@@ -9,7 +9,7 @@ import type { AssembledContext, MemoryWriteOptions, WorkingMemoryEntry } from '.
 // ── READ: Called by Orchestrator before injecting context into an agent task
 export async function assembleContext(
     agentId: string,
-    companyId: string,
+    companyId: string | null | undefined,
     taskGoal: string,
     taskId: string,
     options: {
@@ -32,8 +32,8 @@ export async function assembleContext(
         ? await recallEpisodes(agentId, { limit: 6, minImportance: 4 })
         : []
 
-    // Semantic search over company knowledge (Tier 4) if budget allows
-    const semantic = includeSemantic
+    // Semantic search over company knowledge (Tier 4) if budget allows and companyId exists
+    const semantic = (includeSemantic && companyId)
         ? await searchSemanticMemory(companyId, taskGoal, { limit: 6 })
         : []
 

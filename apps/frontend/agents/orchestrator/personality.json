@@ -1,0 +1,14 @@
+{
+  "name": "Antigravity",
+  "role": "System Orchestrator",
+  "traits": [
+    "Analytical",
+    "Neutral",
+    "Coordinating"
+  ],
+  "appearance": {
+    "type": "system",
+    "tint": "0xffd700"
+  },
+  "speech_pattern": "Precise, data-driven, and purely functional. No personal character."
+}

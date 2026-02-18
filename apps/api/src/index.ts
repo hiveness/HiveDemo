@@ -96,6 +96,47 @@ if (redisUrl) {
     devEvents.on('failed', ({ jobId }) => broadcastStatus(devQueue, jobId, 'Failed', 'blocked'))
 }
 
+// ── Logs Route ──────────────────────────────────────────────────────────────
+app.get('/logs/:type', async (req, reply) => {
+    const { type } = req.params as { type: string };
+    const validTypes = ['api', 'pm', 'dev', 'orchestrator'];
+    if (!validTypes.includes(type)) {
+        return reply.status(400).send({ error: 'Invalid log type' });
+    }
+
+    // Logs are in the root directory: /Users/sahil/Downloads/HiveDemo/logs/
+    // API runs in /Users/sahil/Downloads/HiveDemo/apps/api/
+    // So we need to go up two levels: ../../logs
+    const logPath = path.join(process.cwd(), '../../logs', `${type}.log`);
+    const logPathRoot = path.join(process.cwd(), 'logs', `${type}.log`);
+
+    console.log(`[API] Requesting logs for ${type}`);
+    console.log(`[API] CWD: ${process.cwd()}`);
+    console.log(`[API] Trying path 1: ${logPath} (Exists: ${fs.existsSync(logPath)})`);
+    console.log(`[API] Trying path 2: ${logPathRoot} (Exists: ${fs.existsSync(logPathRoot)})`);
+
+    try {
+        if (fs.existsSync(logPath)) {
+            const stats = fs.statSync(logPath);
+            const readSize = Math.min(stats.size, 50 * 1024);
+            const buffer = Buffer.alloc(readSize);
+            const fd = fs.openSync(logPath, 'r');
+            fs.readSync(fd, buffer, 0, readSize, stats.size - readSize);
+            fs.closeSync(fd);
+            return { logs: buffer.toString('utf-8') };
+        } else if (fs.existsSync(logPathRoot)) {
+            const content = fs.readFileSync(logPathRoot, 'utf-8');
+            const lines = content.split('\n').slice(-500).join('\n');
+            return { logs: lines };
+        } else {
+            return { logs: `No log file found at ${logPath} or ${logPathRoot}` };
+        }
+    } catch (e) {
+        app.log.error(e);
+        return reply.status(500).send({ error: 'Failed to read logs' });
+    }
+});
+
 app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
 app.get('/', async (req, reply) => {

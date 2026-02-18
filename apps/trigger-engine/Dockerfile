@@ -1,0 +1,24 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# 1. Copy root level package files
+COPY package*.json ./
+
+# 2. Copy ALL workspace package.json files so npm can resolve the graph
+COPY apps/api/package*.json ./apps/api/
+COPY apps/agents/package*.json ./apps/agents/
+COPY apps/orchestrator/package*.json ./apps/orchestrator/
+COPY apps/telegram-bot/package*.json ./apps/telegram-bot/
+COPY apps/trigger-engine/package*.json ./apps/trigger-engine/
+COPY packages/db/package*.json ./packages/db/
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/memory/package*.json ./packages/memory/
+
+# 3. Install all dependencies
+RUN npm install --workspaces
+
+# 4. Copy everything else
+COPY . .
+
+EXPOSE ${PORT:-3002}
+CMD ["npx", "tsx", "apps/trigger-engine/src/index.ts"]

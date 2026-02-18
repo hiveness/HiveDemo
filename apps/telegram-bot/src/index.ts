@@ -10,6 +10,9 @@ const HIVE_API = process.env.HIVE_API_URL!
 const HIVE_KEY = process.env.API_KEY!
 const FOUNDER_CHAT_ID = Number(process.env.TELEGRAM_FOUNDER_CHAT_ID!)
 
+// Trigger engine URL defaults to HIVE_API if not set
+const TRIGGER_API = process.env.TRIGGER_ENGINE_URL ?? HIVE_API
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 const api = axios.create({
@@ -61,6 +64,8 @@ bot.start(async (ctx) => {
         `Or use:\n` +
         `/goal [text] — run a goal\n` +
         `/tasks — last 10 tasks\n` +
+        `/triggers — list active autonomous triggers\n` +
+        `/approvals — see pending approval requests\n` +
         `/result [id] — get task output\n` +
         `/status — spend + success rate\n` +
         `/approve [id] — approve a task\n` +
@@ -74,6 +79,8 @@ bot.help(async (ctx) => {
         `<b>Commands</b>\n\n` +
         `/goal [text] — send a goal to your agents\n` +
         `/tasks — last 10 tasks with status\n` +
+        `/triggers — list active autonomous triggers\n` +
+        `/approvals — see pending approval requests\n` +
         `/result [id] — get full result for a task\n` +
         `/status — spend and success rate\n` +
         `/approve [id] — mark a task approved\n\n` +
@@ -177,6 +184,58 @@ bot.command('approve', async (ctx) => {
     }
 })
 
+// /triggers — list active triggers
+bot.command('triggers', async (ctx) => {
+    try {
+        const { data } = await axios.get(`${TRIGGER_API}/triggers`, {
+            headers: { 'x-api-key': HIVE_KEY }
+        })
+        const triggers = data.triggers as any[]
+        if (!triggers.length) {
+            await ctx.reply('No triggers set up yet.\nUse the API to create triggers:\n<code>POST /triggers</code>', { parse_mode: 'HTML' })
+            return
+        }
+        const lines = triggers.map(t =>
+            `${t.enabled ? '🟢' : '⚫'} <b>${t.name}</b>\n` +
+            `Type: ${t.trigger_type} | Policy: ${t.policy_level}\n` +
+            `<code>${t.id.slice(0, 8)}</code>`
+        ).join('\n\n')
+        await ctx.reply(`<b>Active triggers:</b>\n\n${lines}`, { parse_mode: 'HTML' })
+    } catch (err: any) {
+        await ctx.reply(`❌ ${err.message}`)
+    }
+})
+
+// /approvals — see pending approvals
+bot.command('approvals', async (ctx) => {
+    try {
+        const { data } = await axios.get(`${TRIGGER_API}/approvals`, {
+            headers: { 'x-api-key': HIVE_KEY }
+        })
+        const approvals = data.approvals as any[]
+        if (!approvals.length) {
+            await ctx.reply('No pending approvals.')
+            return
+        }
+        for (const approval of approvals.slice(0, 5)) {
+            await ctx.reply(
+                `🔔 <b>Pending approval</b>\n<b>Goal:</b> ${approval.goal}\n<code>${approval.id.slice(0, 8)}</code>`,
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: '✅ Approve', callback_data: `trigger_approve:${approval.id}` },
+                            { text: '❌ Reject', callback_data: `trigger_reject:${approval.id}` },
+                        ]]
+                    }
+                }
+            )
+        }
+    } catch (err: any) {
+        await ctx.reply(`❌ ${err.message}`)
+    }
+})
+
 // ── Plain text = goal ─────────────────────────────────────────────────────────
 bot.on('text', async (ctx) => {
     if ((ctx.message.text ?? '').startsWith('/')) return
@@ -266,6 +325,42 @@ async function pollAndNotify(taskId: string, chatId: number, attempts = 0) {
 }
 
 // ── Inline button callbacks ───────────────────────────────────────────────────
+
+// Trigger approval: ✅ button
+bot.action(/^trigger_approve:(.+)$/, async (ctx) => {
+    const approvalId = ctx.match[1]
+    await ctx.answerCbQuery('Approving...')
+
+    try {
+        const { data } = await axios.post(
+            `${TRIGGER_API}/approvals/${approvalId}/decide`,
+            { decision: 'approved' },
+            { headers: { 'x-api-key': HIVE_KEY } }
+        )
+        await ctx.editMessageReplyMarkup(undefined) // remove buttons
+        await ctx.reply(
+            `✅ <b>Approved and running</b>\nTask: <code>${data.task_id?.slice(0, 8)}</code>`,
+            { parse_mode: 'HTML' }
+        )
+    } catch (err: any) {
+        await ctx.reply(`❌ Error: ${err.message}`)
+    }
+})
+
+// Trigger rejection: ❌ button
+bot.action(/^trigger_reject:(.+)$/, async (ctx) => {
+    const approvalId = ctx.match[1]
+    await ctx.answerCbQuery('Rejected')
+
+    await axios.post(
+        `${TRIGGER_API}/approvals/${approvalId}/decide`,
+        { decision: 'rejected' },
+        { headers: { 'x-api-key': HIVE_KEY } }
+    )
+    await ctx.editMessageReplyMarkup(undefined)
+    await ctx.reply('❌ Trigger rejected. Not executed.')
+})
+
 bot.action(/^ok:(.+)$/, async (ctx) => {
     await ctx.answerCbQuery('Approved ✅')
     await ctx.editMessageReplyMarkup(undefined) // remove buttons

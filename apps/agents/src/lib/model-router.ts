@@ -8,11 +8,11 @@ const groq = new OpenAI({
 
 export type ModelTier = 'fast' | 'balanced' | 'powerful'
 
-// Free on Groq. llama3-8b for simple tasks, 70b for quality work.
+// Free on Groq. llama-3.3-70b is the latest powerful model, 3.1-8b for speed.
 const MODEL_MAP: Record<ModelTier, string> = {
     fast: 'llama-3.1-8b-instant',     // PM breakdowns, simple tasks
     balanced: 'llama-3.3-70b-versatile',  // Dev execution, complex tasks
-    powerful: 'llama-3.3-70b-versatile',  // Same on free tier
+    powerful: 'llama-3.3-70b-versatile',  // Peak performance on Groq
 }
 
 // Groq free = $0. These are for telemetry reference when you switch to paid.

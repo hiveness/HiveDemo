@@ -12,8 +12,9 @@ cleanup() {
 
 trap cleanup SIGINT
 
-# Create logs directory
+# Create logs directory and touch files so tail -f doesn't fail
 mkdir -p logs
+touch logs/api.log logs/pm.log logs/dev.log logs/orchestrator.log logs/trigger-engine.log logs/bot.log
 
 # Start all backend services in background
 echo "📦 Spinning up services (logging to logs/)..."
